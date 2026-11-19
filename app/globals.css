@@ -31,3 +31,71 @@ table{width:100%;border-collapse:collapse;background:#fff}td,th{padding:8px;bord
 .two{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}@media(max-width:800px){.two{grid-template-columns:1fr}}
 .inline{display:inline}
 @media print{nav,.noprint{display:none!important}.grid{grid-template-columns:repeat(4,1fr)}.oc{break-inside:avoid}}
+
+/* ---- UI fixes ---- */
+:root{color-scheme:light}
+input,select,textarea{min-height:38px;max-width:100%;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 3px #8a3b5c22}
+select{appearance:none;-webkit-appearance:none;padding-right:30px;cursor:pointer;min-width:120px;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b6b70' stroke-width='1.6' fill='none'/%3E%3C/svg%3E") no-repeat right 10px center}
+select option{background:#fff;color:#1d1d1f;text-transform:capitalize}
+button,.btn{white-space:nowrap;min-height:38px;line-height:22px}
+button:disabled{opacity:.6;cursor:wait}
+.row>input[type=checkbox]{min-height:auto;width:16px;height:16px}
+label.row{gap:6px;color:var(--ink)}
+nav{flex-wrap:nowrap}nav form{gap:8px;flex-shrink:0}nav form span{white-space:nowrap;font-size:12px}
+nav button{min-height:30px;padding:4px 10px}
+.status-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.status-row button{min-height:30px;padding:3px 10px;font-size:12px;text-transform:capitalize}
+table td{vertical-align:top}
+.card table{background:transparent}
+.oc{transition:box-shadow .15s}.oc:hover{box-shadow:0 4px 14px #0001}
+details summary{cursor:pointer}
+@media(max-width:600px){
+  main{padding:10px}h1{font-size:18px}
+  .grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .row>input,.row>select{flex:1 1 140px}
+  .form{grid-template-columns:1fr 1fr}.form label:has(input[name=customer]),.form label:has(input[name=product]){grid-column:1/-1}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  nav b{display:none}
+}
+
+/* ---- Sheet (Excel-like) ---- */
+.sheet{background:#fff;border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.shead,.scells{display:grid;grid-template-columns:var(--tpl);min-width:1250px}
+.shead{position:sticky;top:0;background:#f0eee9;font-size:12px;font-weight:600;color:var(--mute);z-index:1}
+.shead>div{padding:8px 6px;border-right:1px solid var(--line)}
+.srow{border-top:1px solid var(--line);transition:background .3s}
+.srow:hover{background:#faf9f6}.srow.saving{background:#fffbe6}.srow.saved{background:#eaf7ee}.srow.error{background:#fdecea}
+.cell{border-right:1px solid var(--line);padding:2px;display:flex;align-items:center;min-width:0}
+.cell input,.cell select{width:100%;min-width:0;border:1px solid transparent;border-radius:4px;background-color:transparent;min-height:32px;padding:4px 6px}
+.cell select{padding-right:22px;background-position:right 6px center}
+.cell input:hover,.cell select:hover{border-color:var(--line)}
+.cell input:focus,.cell select:focus{border-color:var(--acc);background-color:#fff;box-shadow:none}
+.num input,.shead .num{text-align:right}
+.cell select.st{font-size:12px;font-weight:600;text-transform:capitalize;border-radius:20px}
+.idlink{font-weight:700;color:var(--acc);padding:0 6px;font-size:12px}
+.sthumb{width:44px;height:44px;border-radius:6px;background:#eee center/cover no-repeat;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--mute);cursor:pointer}
+.cell.img{justify-content:center}.cell.img button{width:44px;height:44px;padding:0;font-size:20px}
+.paycell{display:flex;flex-direction:column;width:100%;padding:0 4px}.paycell span{font-size:12px;color:var(--ok);font-weight:600}
+.paycell input{min-height:24px;font-size:12px;padding:2px 4px;border:1px dashed var(--line)}
+.addrow{background:#fdf7fa}.addrow .cell input{background:#fff;border-color:var(--line)}
+.ssum,.mobile-only{display:none}
+@media(max-width:760px){
+  .sheet{background:none;border:0;overflow:visible}
+  .shead{display:none}
+  .srow{background:#fff;border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden}
+  .ssum{display:flex;width:100%;align-items:center;gap:10px;background:none;color:var(--ink);padding:8px 10px;text-align:left;border-radius:0;min-height:60px}
+  .sinfo{flex:1;min-width:0;display:flex;flex-direction:column}.sinfo b,.sinfo small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sinfo small{color:var(--mute)}
+  .sright{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:12px}
+  .chev{transition:transform .2s;color:var(--mute)}.srow.open .chev{transform:rotate(180deg)}
+  .scells{display:none;min-width:0;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border-top:1px solid var(--line)}
+  .srow.open .scells{display:grid}
+  .cell{border:0;flex-direction:column;align-items:stretch;padding:0}
+  .cell::before{content:attr(data-label);font-size:11px;color:var(--mute);margin-bottom:2px}
+  .cell[data-label=""]::before{display:none}
+  .cell input,.cell select{border-color:var(--line);background-color:#fff;min-height:40px}
+  .cell[data-label="Customer"],.cell[data-label="Product"],.cell[data-label="Note"],.cell[data-label="Customer *"],.cell[data-label="Product *"],.cell.full{grid-column:1/-1}
+  .cell.img{flex-direction:row;justify-content:flex-start}.sthumb.big{width:72px;height:72px}
+  .addrow .cell.img{display:none}.mobile-only{display:flex}
+  .paycell input{min-height:36px}
+}

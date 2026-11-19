@@ -51,7 +51,7 @@ export default function OrderForm({ o = {}, shipments, defShipment }) {
         {I('phone', 'Mobile')}
         {I('source', 'Order from', { def: 'Page', list: 'src' })}
         <datalist id="src"><option>Page</option><option>Personal ID</option><option>WhatsApp</option></datalist>
-        <label>Shipment<select name="shipment_id" defaultValue={o.shipment_id ?? defShipment ?? ''}>
+        <label>Shipment<select name="shipment_id" defaultValue={String(o.shipment_id ?? defShipment ?? '')}>
           <option value="">— none —</option>{shipments.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></label>
         {I('product', 'Product (brand, model, size, colour) *', { required: true, full: true })}
         {I('qty', 'Qty', { type: 'number', def: 1 })}
@@ -64,7 +64,7 @@ export default function OrderForm({ o = {}, shipments, defShipment }) {
         <label>Status<select name="status" defaultValue={o.status || 'pending'}>{ORDER_STATUS.map((s) => <option key={s}>{s}</option>)}</select></label>
         {I('order_date', 'Order date', { type: 'date', def: new Date().toISOString().slice(0, 10) })}
         {I('address', 'Delivery address', { full: true })}
-        <label className="full">Note<textarea name="note" rows={2} defaultValue={o.note || ''} /></label>
+        <label className="full">Note<textarea name="note" rows={3} defaultValue={o.note || ''} /></label>
       </div>
       {err && <p className="due">{err}</p>}
       <p><button disabled={busy}>{busy ? 'Saving…' : 'Save order'}</button></p>

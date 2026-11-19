@@ -1,13 +1,10 @@
-import { db } from '@/lib/db';
+import { all, get, orderView, byIdDesc } from '@/lib/store';
 import { SHIP_STATUS, tk, rm, due } from '@/lib/util';
 import { saveShipment } from '@/app/actions';
 export const dynamic = 'force-dynamic';
 export default async function Shipments() {
-  const [{ data: ships = [] }, { data: orders = [] }, { data: buys = [] }] = await Promise.all([
-    db().from('shipments').select('*').order('id', { ascending: false }),
-    db().from('order_view').select('shipment_id,bill,delivery_charge,paid,status'),
-    db().from('purchases').select('shipment_id,amount_rm'),
-  ]);
+  const [ships, orders, buys] = await Promise.all([all('shipments'), orderView(), all('purchases')]);
+  ships.sort(byIdDesc);
   const sum = (arr, fn) => arr.reduce((a, x) => a + fn(x), 0);
   return (<>
     <h1>Shipments</h1>

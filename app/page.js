@@ -1,9 +1,9 @@
-import { db } from '@/lib/db';
+import { all, get, orderView, byIdDesc } from '@/lib/store';
 import { due, tk, closed } from '@/lib/util';
 import OrderCard from '@/components/OrderCard';
 export const dynamic = 'force-dynamic';
 export default async function Dashboard() {
-  const { data: orders = [] } = await db().from('order_view').select('*').order('id', { ascending: false });
+  const orders = await orderView();
   const open = orders.filter((o) => !closed(o.status));
   const count = (s) => orders.filter((o) => o.status === s).length;
   const outstanding = orders.filter((o) => o.status !== 'cancelled' && o.status !== 'refunded').reduce((a, o) => a + Math.max(0, due(o)), 0);

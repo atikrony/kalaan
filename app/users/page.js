@@ -1,8 +1,8 @@
-import { db } from '@/lib/db';
+import { all, get, orderView, byIdDesc } from '@/lib/store';
 import { addUser, updateUser } from '@/app/actions';
 export const dynamic = 'force-dynamic';
 export default async function Users() {
-  const { data: users = [] } = await db().from('users').select('id,username,name,role,active,created_at').order('id');
+  const users = (await all('users')).sort((a, b) => a.id - b.id);
   return (<>
     <h1>Users</h1>
     <p className="mute">The owner logs in as <b>admin</b> with the APP_PASSWORD. Add each moderator below.</p>

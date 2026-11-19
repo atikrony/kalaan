@@ -1,15 +1,14 @@
-import { db } from '@/lib/db';
+import { all, get, orderView, byIdDesc } from '@/lib/store';
 import { ORDER_STATUS, PAY_KINDS, METHODS, code, due, tk, rm } from '@/lib/util';
 import { setStatus, addPayment, deletePayment, deleteOrder } from '@/app/actions';
 import OrderForm from '@/components/OrderForm';
 export const dynamic = 'force-dynamic';
 export default async function Order({ params, searchParams }) {
   const { id } = await params; const sp = await searchParams;
-  const [{ data: o }, { data: pays = [] }, { data: ships = [] }] = await Promise.all([
-    db().from('order_view').select('*').eq('id', id).single(),
-    db().from('payments').select('*').eq('order_id', id).order('paid_on'),
-    db().from('shipments').select('id,name').order('id', { ascending: false }),
-  ]);
+  const [orders, allPays, ships] = await Promise.all([orderView(), all('payments'), all('shipments')]);
+  const o = orders.find((x) => x.id === +id);
+  const pays = allPays.filter((p) => p.order_id === +id).sort((a, b) => (a.paid_on > b.paid_on ? 1 : -1));
+  ships.sort(byIdDesc);
   if (!o) return <p>Order not found.</p>;
   if (sp.edit) return (<><h1>Edit {code(o.id)}</h1><OrderForm o={o} shipments={ships} /></>);
   const d = due(o);
@@ -29,8 +28,8 @@ export default async function Order({ params, searchParams }) {
           <div className="mute">{o.phone} · {o.source} · {o.order_date}</div>
           {o.address && <div>{o.address}</div>}
           {o.note && <p style={{ background: '#fff8e1', padding: 8, borderRadius: 6 }}>{o.note}</p>}
-          <form action={setStatus} className="row"><input type="hidden" name="id" value={o.id} />
-            {ORDER_STATUS.map((s) => <button key={s} name="status" value={s} className={s === o.status ? '' : 'btn2'} style={{ padding: '4px 9px', fontSize: 12 }}>{s}</button>)}</form>
+          <form action={setStatus} className="status-row"><input type="hidden" name="id" value={o.id} />
+            {ORDER_STATUS.map((s) => <button key={s} name="status" value={s} className={s === o.status ? '' : 'btn2'}>{s}</button>)}</form>
         </div>
         <div className="card stats" style={{ margin: 0 }}>
           <div className="stat"><small>Buying</small><b>{rm(o.buy_rm)}</b></div>

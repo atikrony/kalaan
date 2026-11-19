@@ -1,4 +1,4 @@
-import { db } from '@/lib/db';
+import { all, get, orderView, byIdDesc } from '@/lib/store';
 import { code } from '@/lib/util';
 export const dynamic = 'force-dynamic';
 const link = (l) => {
@@ -14,11 +14,9 @@ const fmt = (v) => (Array.isArray(v) ? `${v.length} image(s)` : v === null ? 'â€
 export default async function Logs({ searchParams }) {
   const sp = await searchParams;
   const since = new Date(Date.now() - 30 * 864e5).toISOString();
-  let q = db().from('logs').select('*').gte('created_at', since).order('created_at', { ascending: false }).limit(500);
-  if (sp.user) q = q.eq('username', sp.user);
-  if (sp.entity) q = q.eq('entity', sp.entity);
-  if (sp.id) q = q.eq('entity_id', sp.id);
-  const [{ data: logs = [] }, { data: users = [] }] = await Promise.all([q, db().from('users').select('username')]);
+  let [logs, users] = await Promise.all([all('logs'), all('users')]);
+  logs = logs.filter((l) => l.created_at >= since && (!sp.user || l.username === sp.user) && (!sp.entity || l.entity === sp.entity) && (!sp.id || l.entity_id === sp.id))
+    .sort(byIdDesc).slice(0, 500);
   return (<>
     <h1>Activity log <small className="mute">(last 30 days)</small></h1>
     <form className="row card" style={{ marginBottom: 14 }}>

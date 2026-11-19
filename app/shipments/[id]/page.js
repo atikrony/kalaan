@@ -1,28 +1,26 @@
-import { db } from '@/lib/db';
+import { all, get, orderView, byIdDesc } from '@/lib/store';
 import { SHIP_STATUS, ORDER_STATUS, tk, rm, due, n } from '@/lib/util';
 import { saveShipment, bulkStatus, addPurchase, deletePurchase } from '@/app/actions';
 import OrderCard from '@/components/OrderCard';
 export const dynamic = 'force-dynamic';
 export default async function Shipment({ params }) {
   const { id } = await params;
-  const [{ data: s }, { data: all = [] }, { data: buys = [] }] = await Promise.all([
-    db().from('shipments').select('*').eq('id', id).single(),
-    db().from('order_view').select('*').eq('shipment_id', id).order('id'),
-    db().from('purchases').select('*').eq('shipment_id', id).order('bought_on'),
-  ]);
+  const [s, ov, bs] = await Promise.all([get('shipments', id), orderView(), all('purchases')]);
+  const list = ov.filter((o) => o.shipment_id === +id).reverse();
+  const buys = bs.filter((b) => b.shipment_id === +id).sort((a, b) => (a.bought_on > b.bought_on ? 1 : -1));
   if (!s) return <p>Not found.</p>;
-  const orders = all.filter((o) => !['cancelled', 'refunded'].includes(o.status));
+  const orders = list.filter((o) => !['cancelled', 'refunded'].includes(o.status));
   const sum = (arr, fn) => arr.reduce((a, x) => a + n(fn(x)), 0);
   const bills = sum(orders, (o) => o.bill), spentRm = sum(buys, (b) => b.amount_rm) || sum(orders, (o) => o.buy_rm);
   const cost = spentRm * n(s.rate) + n(s.cargo_cost) + sum(orders, (o) => o.cod_charge);
   return (<>
     <div className="row"><h1>{s.name}</h1><span className="badge">{s.status}</span><span className="sp" />
-      <a className="btn btn2 noprint" href={`/orders?shipment=${s.id}&view=table`}>Table</a>
+      <a className="btn btn2 noprint" href={`/orders?shipment=${s.id}&view=sheet`}>Table</a>
       <a className="btn noprint" href={`/orders/new?shipment=${s.id}`}>+ Order</a></div>
     <div className="stats">
       <div className="card stat"><small>Orders</small><b>{orders.length}</b></div>
       <div className="card stat"><small>Total bills</small><b>{tk(bills)}</b></div>
-      <div className="card stat"><small>Collected</small><b className="paid">{tk(sum(all, (o) => o.paid))}</b></div>
+      <div className="card stat"><small>Collected</small><b className="paid">{tk(sum(list, (o) => o.paid))}</b></div>
       <div className="card stat"><small>Customer due</small><b className="due">{tk(sum(orders, (o) => Math.max(0, due(o))))}</b></div>
       <div className="card stat"><small>Spent in Malaysia</small><b>{rm(spentRm)}</b></div>
       <div className="card stat"><small>Est. profit</small><b>{s.rate ? tk(bills - cost) : 'set rate'}</b></div>
@@ -43,7 +41,7 @@ export default async function Shipment({ params }) {
       </form>
     </details>
     <h2>Order images <small className="mute noprint">(Ctrl+P prints an identification sheet)</small></h2>
-    <div className="grid">{all.map((o) => <OrderCard key={o.id} o={o} />)}</div>
+    <div className="grid">{list.map((o) => <OrderCard key={o.id} o={o} />)}</div>
     <h2>Malaysia purchases</h2>
     <div className="card">
       <table><tbody>{buys.map((b) => <tr key={b.id}><td>{b.bought_on}</td><td>{b.item}</td><td>{rm(b.amount_rm)}</td>
