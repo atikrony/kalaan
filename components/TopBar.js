@@ -15,6 +15,17 @@ export default function TopBar({ user, ships }) {
   const [menu, setMenu] = useState(false);
   const [nav, setNav] = useState(false);
   const isAdmin = user.role === 'admin';
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const t = document.documentElement.dataset.theme;
+    setDark(t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
+  }, []);
+  const toggleTheme = () => {
+    const t = dark ? 'light' : 'dark';
+    document.documentElement.dataset.theme = t;
+    try { localStorage.setItem('theme', t); } catch {}
+    setDark(!dark);
+  };
 
   useEffect(() => {
     const h = (e) => setModal(e.detail);
@@ -47,6 +58,7 @@ export default function TopBar({ user, ships }) {
       </form>
       <button className="btn ghost hide-md" onClick={() => openModal('shipment')}><Icon n="truck" size="sm" />New Shipment</button>
       <button className="btn" onClick={() => openModal('order', { shipment_id: defShip })}><Icon n="plus" size="sm" /><span className="hide-sm">New Order</span></button>
+      <button className="btn ghost icon theme-btn" onClick={toggleTheme} title={dark ? 'Switch to light theme' : 'Switch to dark theme'} aria-label="Toggle theme"><Icon n={dark ? 'sun' : 'moon'} /></button>
       <div className="menu">
         <button className="avatar" onClick={() => setMenu(!menu)} aria-label="Account">{initials}</button>
         {menu && <div className="menu-pop">

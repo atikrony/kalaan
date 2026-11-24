@@ -15,7 +15,8 @@ export default async function Layout({ children }) {
   const u = await getUser();
   const ships = u ? (await all('shipments')).sort(byIdDesc).map(({ id, name, status }) => ({ id, name, status })) : [];
   return (
-    <html lang="en" className={`${head.variable} ${body.variable}`}>
+    <html lang="en" className={`${head.variable} ${body.variable}`} suppressHydrationWarning>
+      <head><script dangerouslySetInnerHTML={{ __html: "try{var t=localStorage.getItem('theme');if(t)document.documentElement.dataset.theme=t}catch(e){}" }} /></head>
       <body>
         {u && <Suspense><TopBar user={u} ships={ships} /></Suspense>}
         {u ? <main className="main">{children}</main> : children}
