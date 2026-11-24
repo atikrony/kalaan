@@ -24,6 +24,17 @@ Locally, data is saved to `data/db.json` and images to `public/uploads/`.
 - Passwords are saved as salted scrypt hashes, never as plain text. Login sessions are signed cookies.
 - The **Activity log** (admin only) shows every change from the last 30 days: who changed what, with old → new values.
 
+## Screens (Stitch design: "Pre-Order ERP Manager")
+- **Orders** (`/`): KPI tiles, shipment batch cards, the selected batch's ledger, and an order detail panel (`?s=<shipment>&o=<order>`).
+  New Order / New Shipment open as modals. Status, batch, note and photos save inline; payments are recorded in the panel.
+  "Manifest CSV" downloads the current list.
+- **Reconciliation**: per-batch profit and margin, receivables, and cash by payment method.
+- **Customers**: orders grouped by mobile number, with totals and dues.
+- **Team** and **Activity** (admin only).
+
+Profit per batch = bills − (RM spent × ৳/RM rate) − cargo cost − COD charges. Set the rate and cargo cost in *Shipment settings*.
+Cargo cost is split equally across the batch's orders as each order's freight share.
+
 ## Workflow
 pending (no advance) → confirmed (advance paid) → purchased → shipped → arrived → delivered.
 Remaining due = bill + delivery charge − (advances + payments − refunds).
