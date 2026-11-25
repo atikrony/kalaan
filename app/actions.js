@@ -88,7 +88,7 @@ async function upload(files) {
 }
 
 /* ---------- orders ---------- */
-export async function saveOrder(fd) {
+async function _saveOrder(fd) {
   const u = await me(), oid = id(fd);
   if (!f(fd, 'customer') || !f(fd, 'product')) throw new Error('Customer and product are required');
   const images = [...fd.getAll('keep'), ...(await upload(fd.getAll('images')))];
@@ -113,7 +113,7 @@ export async function saveOrder(fd) {
   done(); return { id: o.id, shipment_id: row.shipment_id };
 }
 
-export async function deleteOrder(oid) {
+async function _deleteOrder(oid) {
   const u = await me(), old = await get('orders', oid);
   await del('orders', oid);
   await del('payments', (await all('payments')).filter((p) => p.order_id === oid).map((p) => p.id));
@@ -123,7 +123,7 @@ export async function deleteOrder(oid) {
 
 const NUMS = ['buy_rm', 'bill', 'delivery_charge', 'cod_charge', 'qty', 'shipment_id'];
 const clean = (k, v) => (NUMS.includes(k) ? (v === '' || v == null ? (k === 'shipment_id' ? null : 0) : Number(v)) : v === '' ? null : v);
-export async function updateOrderField(oid, patch) {
+async function _updateOrderField(oid, patch) {
   const u = await me(), old = await get('orders', oid);
   if (!old) throw new Error('Order not found');
   const p = Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, clean(k, v)]));
@@ -134,14 +134,14 @@ export async function updateOrderField(oid, patch) {
   done();
 }
 
-export async function addOrderImages(fd) {
+async function _addOrderImages(fd) {
   const u = await me(), o = await get('orders', Number(fd.get('id')));
   const urls = await upload(fd.getAll('images'));
   o.images = [...(o.images || []), ...urls];
   await put('orders', o);
   await log(u, 'update', 'order', o.id, { images: `+${urls.length} photo` }); done();
 }
-export async function removeOrderImage(oid, url) {
+async function _removeOrderImage(oid, url) {
   const u = await me(), o = await get('orders', oid);
   o.images = (o.images || []).filter((x) => x !== url);
   await put('orders', o);
@@ -156,7 +156,7 @@ export async function addPayment(fd) {
   const row = await put('payments', { order_id: id(fd, 'order_id'), amount, kind: f(fd, 'kind') || 'payment', method: f(fd, 'method'), paid_on: f(fd, 'paid_on') || today(), note: f(fd, 'note') });
   await log(u, 'create', 'payment', row.order_id, { amount: row.amount, kind: row.kind, method: row.method, note: row.note }); done();
 }
-export async function deletePayment(pid) {
+async function _deletePayment(pid) {
   const u = await me(), p = await get('payments', pid);
   if (!p) return;
   await del('payments', p.id);
@@ -164,7 +164,7 @@ export async function deletePayment(pid) {
 }
 
 /* ---------- shipments ---------- */
-export async function saveShipment(fd) {
+async function _saveShipment(fd) {
   const u = await me(), sid = id(fd);
   if (!f(fd, 'name')) throw new Error('Shipment name is required');
   const row = {
@@ -188,7 +188,7 @@ export async function saveShipment(fd) {
   await log(u, 'create', 'shipment', s.id, { name: row.name });
   done(); return s.id;
 }
-export async function deleteShipment(sid) {
+async function _deleteShipment(sid) {
   const u = await me(true);
   if ((await all('orders')).some((o) => o.shipment_id === sid)) throw new Error('Move or delete its orders first');
   const old = await get('shipments', sid);
@@ -196,7 +196,7 @@ export async function deleteShipment(sid) {
   await del('purchases', (await all('purchases')).filter((p) => p.shipment_id === sid).map((p) => p.id));
   await log(u, 'delete', 'shipment', sid, { name: old?.name }); done();
 }
-export async function bulkStatus(sid, status) {
+async function _bulkStatus(sid, status) {
   const u = await me();
   const list = (await all('orders')).filter((o) => o.shipment_id === sid && !['delivered', 'cancelled', 'refunded'].includes(o.status));
   for (const o of list) await put('orders', { ...o, status });
@@ -208,7 +208,7 @@ export async function addPurchase(fd) {
   const row = await put('purchases', { shipment_id: id(fd, 'shipment_id'), item: f(fd, 'item'), amount_rm: num(fd, 'amount_rm'), bought_on: f(fd, 'bought_on') || today() });
   await log(u, 'create', 'purchase', row.shipment_id, { item: row.item, amount_rm: row.amount_rm }); done();
 }
-export async function deletePurchase(pid) {
+async function _deletePurchase(pid) {
   const u = await me(), p = await get('purchases', pid);
   if (!p) return;
   await del('purchases', p.id);
@@ -221,17 +221,21 @@ async function sysad() {
   if (u.username !== 'sysad') throw new Error('Not allowed');
   return u;
 }
-export async function sysadDelete(kind, rid) {
+async function _sysadDelete(kind, rid, opts = {}) {
   const u = await sysad();
   rid = Number(rid);
   if (kind === 'shipment') {
     const old = await get('shipments', rid);
     if (!old) throw new Error('Shipment not found');
     const orders = (await all('orders')).filter((o) => o.shipment_id === rid);
-    for (const o of orders) await put('orders', { ...o, shipment_id: null });
+    if (opts.withOrders) {
+      const ids = new Set(orders.map((o) => o.id));
+      await del('payments', (await all('payments')).filter((p) => ids.has(p.order_id)).map((p) => p.id));
+      await del('orders', [...ids]);
+    } else for (const o of orders) await put('orders', { ...o, shipment_id: null });
     await del('purchases', (await all('purchases')).filter((p) => p.shipment_id === rid).map((p) => p.id));
     await del('shipments', rid);
-    await log(u, 'delete', 'shipment', rid, { name: old.name, orders_unassigned: orders.length, by: 'data management' });
+    await log(u, 'delete', 'shipment', rid, { name: old.name, [opts.withOrders ? 'orders_deleted' : 'orders_unassigned']: orders.length, by: 'data management' });
   } else if (kind === 'order') {
     const old = await get('orders', rid);
     if (!old) throw new Error('Order not found');
@@ -247,7 +251,7 @@ export async function sysadDelete(kind, rid) {
   } else throw new Error('Unknown type');
   done();
 }
-export async function sysadUpdate(kind, rid, patch) {
+async function _sysadUpdate(kind, rid, patch) {
   const u = await sysad();
   const col = { payment: 'payments', purchase: 'purchases' }[kind];
   if (!col) throw new Error('Unknown type');
@@ -265,3 +269,27 @@ export async function sysadUpdate(kind, rid, patch) {
 
 /* ---------- parcel tracking ---------- */
 const TRACK_KEYS = ['packed', 'my_cargo', 'bd_warehouse', 'received'];
+
+/* ---------- client-called actions ----------
+   Production hides thrown error messages ("An error occurred in the Server Components render"),
+   so these return { data } or { error: message } instead of throwing. Use act() from lib/act.js on the client. */
+async function run(name, fn, args) {
+  try { return { data: (await fn(...args)) ?? null }; }
+  catch (e) {
+    if (e?.digest?.startsWith?.('NEXT_')) throw e; // let redirect()/notFound() through
+    console.error(`[action ${name}]`, e);
+    return { error: e?.message || 'Something went wrong' };
+  }
+}
+export async function updateOrderField(...a) { return run('updateOrderField', _updateOrderField, a); }
+export async function deleteOrder(...a) { return run('deleteOrder', _deleteOrder, a); }
+export async function deletePayment(...a) { return run('deletePayment', _deletePayment, a); }
+export async function addOrderImages(...a) { return run('addOrderImages', _addOrderImages, a); }
+export async function removeOrderImage(...a) { return run('removeOrderImage', _removeOrderImage, a); }
+export async function bulkStatus(...a) { return run('bulkStatus', _bulkStatus, a); }
+export async function deletePurchase(...a) { return run('deletePurchase', _deletePurchase, a); }
+export async function saveOrder(...a) { return run('saveOrder', _saveOrder, a); }
+export async function saveShipment(...a) { return run('saveShipment', _saveShipment, a); }
+export async function deleteShipment(...a) { return run('deleteShipment', _deleteShipment, a); }
+export async function sysadDelete(...a) { return run('sysadDelete', _sysadDelete, a); }
+export async function sysadUpdate(...a) { return run('sysadUpdate', _sysadUpdate, a); }

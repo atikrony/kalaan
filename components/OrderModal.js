@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import Modal from './Modal';
 import Icon from './Icon';
 import { saveOrder } from '@/app/actions';
+import { act } from '@/lib/act';
 import { ORDER_STATUS, METHODS, SOURCES, label, tk, today } from '@/lib/util';
 
 export async function compress(file, max = 1280) {
@@ -37,7 +38,7 @@ export default function OrderModal({ order = {}, ships, onClose }) {
     keep.forEach((u) => fd.append('keep', u));
     files.forEach((x) => fd.append('images', x));
     try {
-      const r = await saveOrder(fd);
+      const r = await act(saveOrder(fd));
       onClose();
       router.push(`/?s=${r.shipment_id ?? 'none'}&o=${r.id}`, { scroll: false });
       router.refresh();
