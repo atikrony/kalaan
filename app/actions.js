@@ -209,3 +209,51 @@ export async function deletePurchase(pid) {
   await del('purchases', p.id);
   await log(u, 'delete', 'purchase', p.shipment_id, { item: p.item, amount_rm: p.amount_rm }); done();
 }
+
+/* ---------- data management (sysad only) ---------- */
+async function sysad() {
+  const u = await me();
+  if (u.username !== 'sysad') throw new Error('Not allowed');
+  return u;
+}
+export async function sysadDelete(kind, rid) {
+  const u = await sysad();
+  rid = Number(rid);
+  if (kind === 'shipment') {
+    const old = await get('shipments', rid);
+    if (!old) throw new Error('Shipment not found');
+    const orders = (await all('orders')).filter((o) => o.shipment_id === rid);
+    for (const o of orders) await put('orders', { ...o, shipment_id: null });
+    await del('purchases', (await all('purchases')).filter((p) => p.shipment_id === rid).map((p) => p.id));
+    await del('shipments', rid);
+    await log(u, 'delete', 'shipment', rid, { name: old.name, orders_unassigned: orders.length, by: 'data management' });
+  } else if (kind === 'order') {
+    const old = await get('orders', rid);
+    if (!old) throw new Error('Order not found');
+    const pays = (await all('payments')).filter((p) => p.order_id === rid);
+    await del('payments', pays.map((p) => p.id));
+    await del('orders', rid);
+    await log(u, 'delete', 'order', rid, { customer: old.customer, product: old.product, bill: old.bill, payments_removed: pays.length, by: 'data management' });
+  } else if (kind === 'payment' || kind === 'purchase') {
+    const col = kind + 's', old = await get(col, rid);
+    if (!old) throw new Error('Not found');
+    await del(col, rid);
+    await log(u, 'delete', kind, kind === 'payment' ? old.order_id : old.shipment_id, { ...old, id: undefined, by: 'data management' });
+  } else throw new Error('Unknown type');
+  done();
+}
+export async function sysadUpdate(kind, rid, patch) {
+  const u = await sysad();
+  const col = { payment: 'payments', purchase: 'purchases' }[kind];
+  if (!col) throw new Error('Unknown type');
+  const old = await get(col, Number(rid));
+  if (!old) throw new Error('Not found');
+  const NUM = ['amount', 'amount_rm'];
+  const p = Object.fromEntries(Object.entries(patch).filter(([k]) => k in old || ['note', 'method'].includes(k))
+    .map(([k, v]) => [k, NUM.includes(k) ? Number(v) || 0 : v === '' ? null : v]));
+  const d = diff(old, p);
+  if (!Object.keys(d).length) return;
+  await put(col, { ...old, ...p });
+  await log(u, 'update', kind, kind === 'payment' ? old.order_id : old.shipment_id, { ...d, by: 'data management' });
+  done();
+}

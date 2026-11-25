@@ -1,25 +1,30 @@
-'use client';
-import { useActionState } from 'react';
-import { changePassword } from '../actions';
-import Icon from '@/components/Icon';
-import PasswordInput from '@/components/PasswordInput';
+import { getUser } from '@/lib/session';
+import { all, orderView, byIdDesc } from '@/lib/store';
+import PasswordForm from '@/components/PasswordForm';
+import DataAdmin from '@/components/DataAdmin';
+export const dynamic = 'force-dynamic';
 
-export default function Settings() {
-  const [res, act, busy] = useActionState(changePassword, null);
+export default async function Settings() {
+  const u = await getUser();
+  const isSysad = u?.username === 'sysad';
+  let data = null;
+  if (isSysad) {
+    const [orders, ships, pays, buys] = await Promise.all([orderView(), all('shipments'), all('payments'), all('purchases')]);
+    const sn = Object.fromEntries(ships.map((s) => [s.id, s.name]));
+    const oc = {};
+    for (const o of orders) if (o.shipment_id) oc[o.shipment_id] = (oc[o.shipment_id] || 0) + 1;
+    data = {
+      shipments: ships.sort(byIdDesc).map((s) => ({ ...s, order_count: oc[s.id] || 0 })),
+      orders,
+      payments: pays.sort(byIdDesc),
+      purchases: buys.sort(byIdDesc).map((p) => ({ ...p, shipment_name: sn[p.shipment_id] })),
+    };
+  }
   return (
     <div className="center-wrap">
       <div className="page-head"><div><h1>Settings</h1><p>Change the password you use to sign in.</p></div></div>
-      <section className="card">
-        <div className="card-head"><Icon n="user" className="pri" /><h3>Change password</h3></div>
-        <form action={act} style={{ padding: 16, display: 'grid', gap: 12 }}>
-          <label className="field">Current password<PasswordInput name="current" autoComplete="current-password" required /></label>
-          <label className="field">New password<PasswordInput name="password" autoComplete="new-password" minLength={6} required /></label>
-          <label className="field">Confirm new password<PasswordInput name="confirm" autoComplete="new-password" minLength={6} required /></label>
-          {res?.err && <div className="err">{res.err}</div>}
-          {res?.ok && <div style={{ color: 'var(--ok, green)', fontSize: 13 }}>{res.ok}</div>}
-          <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Update password'}</button>
-        </form>
-      </section>
+      <PasswordForm />
+      {isSysad && <DataAdmin data={data} />}
     </div>
   );
 }
