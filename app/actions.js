@@ -27,12 +27,12 @@ export async function login(_, fd) {
   let user = null;
   if (username === 'admin' && process.env.APP_PASSWORD && password === process.env.APP_PASSWORD) user = { username: 'admin', role: 'admin', name: 'Owner' };
   else user = await authenticate(username, password);
-  if (!user) return 'Wrong username or password';
+  if (!user) { await log({ username }, 'login_failed', 'user', username); return 'Wrong username or password'; }
   (await cookies()).set('auth', await sign(user), { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 60 * 60 * 24 * 30, path: '/' });
   await log(user, 'login', 'user', user.username);
   redirect('/');
 }
-export async function logout() { (await cookies()).delete('auth'); redirect('/login'); }
+export async function logout() { const u = await getUser(); if (u) await log(u, 'logout', 'user', u.username); (await cookies()).delete('auth'); redirect('/login'); }
 
 /* ---------- own account ---------- */
 export async function changePassword(_, fd) {
@@ -48,7 +48,7 @@ export async function changePassword(_, fd) {
     row = { username: u.username, name: e?.name || u.name, role: e?.role || u.role, active: true, created_at: new Date().toISOString() };
   }
   row.pass_hash = hashPass(next);
-  await put('users', row);
+  try { await put('users', row); } catch (e) { return { err: e.message }; }
   await log(u, 'update', 'user', row.id, { username: row.username, password: 'changed (self)' });
   return { ok: 'Password updated.' };
 }
