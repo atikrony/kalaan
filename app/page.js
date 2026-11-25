@@ -5,6 +5,7 @@ import Icon from '@/components/Icon';
 import OrderPanel from '@/components/OrderPanel';
 import { OpenModal, RowLink, BulkStatus, DelBtn } from '@/components/Live';
 import { addPurchase } from '@/app/actions';
+import BatchStrip, { BatchCard } from '@/components/BatchStrip';
 export const dynamic = 'force-dynamic';
 
 const PAGE = 150;
@@ -89,13 +90,13 @@ export default async function Orders({ searchParams }) {
 
     {/* Shipment batches */}
     <div className="sec-head">
-      <Icon n="layers" /><h2>Shipment batches</h2><span className="badge outline">Freight centric</span><span className="sp" />
+      <Icon n="layers" /><h2>Shipment batches</h2><OpenModal kind="shipment" className="btn ghost sm" title="New shipment batch"><Icon n="plus" size="sm" />New batch</OpenModal><span className="sp" />
       <a className="mute" href={qs({ closed: showClosed ? undefined : '1', o: undefined })}>{showClosed ? 'Hide closed' : `Show closed (${ships.length - openShips.length})`}</a>
     </div>
-    <div className="batches">
+    <BatchStrip>
       {cards.map((s) => {
         const x = stats[s.id];
-        return <a key={s.id} href={qs({ s: s.id, o: undefined, q: undefined, n: undefined })} className={`card batch ${mode === 'ship' && sel?.id === s.id ? 'on' : ''}`}>
+        return <BatchCard key={s.id} ship={s} href={qs({ s: s.id, o: undefined, q: undefined, n: undefined })} className={`card batch ${mode === 'ship' && sel?.id === s.id ? 'on' : ''}`}>
           <div className="t"><h3>{s.name}</h3><span className={`badge b-${s.status}`}>{label(s.status)}</span><span className="sp" />
             {s.mode && <span className="badge outline">{s.mode}</span>}</div>
           <div className="route ell">{s.route || <span className="mute">Malaysia → Bangladesh</span>}</div>
@@ -103,7 +104,7 @@ export default async function Orders({ searchParams }) {
             <div><small>ETA</small><b className="pri">{s.eta ? fmtDate(s.eta) : '—'}</b></div></div>
           <div className="kv"><div><small className="eyebrow">Orders & volume</small><b>{x.count} Orders • {tk(x.bills)}</b></div>
             <div><small className="eyebrow">Projected earned</small><b className={x.profit == null ? 'mute' : x.profit < 0 ? 'bad' : 'ok'}>{x.profit == null ? 'Set rate' : tk(x.profit)}</b></div></div>
-        </a>;
+        </BatchCard>;
       })}
       {unassigned.orders.length > 0 && <a href={qs({ s: 'none', o: undefined, q: undefined })} className={`card batch ${mode === 'none' ? 'on' : ''}`}>
         <div className="t"><h3>Unassigned orders</h3><span className="badge b-amber">No batch</span></div>
@@ -111,8 +112,7 @@ export default async function Orders({ searchParams }) {
         <div className="kv"><div><small className="eyebrow">Orders & volume</small><b>{unassigned.count} Orders • {tk(unassigned.bills)}</b></div>
           <div><small className="eyebrow">Due</small><b className="warn">{tk(unassigned.due)}</b></div></div>
       </a>}
-      <OpenModal kind="shipment" className="card batch add"><Icon n="plus" size="lg" /><b>New shipment batch</b></OpenModal>
-    </div>
+    </BatchStrip>
 
     {/* Ledger + panel */}
     <div className={`work ${selOrder ? 'has-panel' : ''}`}>
