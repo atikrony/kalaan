@@ -6,6 +6,7 @@ import OrderPanel from '@/components/OrderPanel';
 import { OpenModal, RowLink, BulkStatus, DelBtn } from '@/components/Live';
 import { addPurchase } from '@/app/actions';
 import BatchStrip, { BatchCard } from '@/components/BatchStrip';
+import { TrackMini, TrackSteps } from '@/components/Tracking';
 export const dynamic = 'force-dynamic';
 
 const PAGE = 150;
@@ -99,7 +100,7 @@ export default async function Orders({ searchParams }) {
         return <BatchCard key={s.id} ship={s} href={qs({ s: s.id, o: undefined, q: undefined, n: undefined })} className={`card batch ${mode === 'ship' && sel?.id === s.id ? 'on' : ''}`}>
           <div className="t"><h3>{s.name}</h3><span className={`badge b-${s.status}`}>{label(s.status)}</span><span className="sp" />
             {s.mode && <span className="badge outline">{s.mode}</span>}</div>
-          <div className="route ell">{s.route || <span className="mute">Malaysia → Bangladesh</span>}</div>
+          <TrackMini ship={s} />
           <div className="kv"><div><small>Carrier / AWB</small><b>{[s.carrier, s.tracking && '#' + s.tracking].filter(Boolean).join(' • ') || '—'}</b></div>
             <div><small>ETA</small><b className="pri">{s.eta ? fmtDate(s.eta) : '—'}</b></div></div>
           <div className="kv"><div><small className="eyebrow">Orders & volume</small><b>{x.count} Orders • {tk(x.bills)}</b></div>
@@ -131,6 +132,7 @@ export default async function Orders({ searchParams }) {
             {sel && mode === 'ship' && <OpenModal kind="shipment" data={sel} className="btn ghost sm"><Icon n="edit" size="sm" />Shipment settings</OpenModal>}
             {mode !== 'empty' && <a className="btn ghost sm" href={`/api/manifest?${new URLSearchParams({ s: mode === 'ship' ? sel.id : mode === 'none' ? 'none' : '', q: sp.q || '', st: sp.st || '', due: sp.due || '' })}`}><Icon n="download" size="sm" />Manifest CSV</a>}
           </div>
+          {sel && mode === 'ship' && <TrackSteps ship={sel} />}
         </div>
 
         {st && <div className="summary">

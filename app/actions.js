@@ -168,10 +168,15 @@ export async function saveShipment(fd) {
   const u = await me(), sid = id(fd);
   if (!f(fd, 'name')) throw new Error('Shipment name is required');
   const row = {
-    name: f(fd, 'name'), status: f(fd, 'status') || 'collecting', mode: f(fd, 'mode'), route: f(fd, 'route'),
+    name: f(fd, 'name'), status: f(fd, 'status') || 'collecting', mode: f(fd, 'mode'),
     carrier: f(fd, 'carrier'), tracking: f(fd, 'tracking'), eta: f(fd, 'eta'),
     rate: num(fd, 'rate'), cargo_cost: num(fd, 'cargo_cost'), note: f(fd, 'note'),
   };
+  if (fd.has('track')) { // tracking stage + the date each step happened
+    row.track = f(fd, 'track');
+    const i = TRACK_KEYS.indexOf(row.track);
+    row.track_at = Object.fromEntries(TRACK_KEYS.map((k, j) => [k, j <= i ? f(fd, 'at_' + k) || today() : null]).filter(([, v]) => v));
+  }
   if (sid) {
     const old = await get('shipments', sid);
     await put('shipments', { ...old, ...row });
@@ -255,5 +260,25 @@ export async function sysadUpdate(kind, rid, patch) {
   if (!Object.keys(d).length) return;
   await put(col, { ...old, ...p });
   await log(u, 'update', kind, kind === 'payment' ? old.order_id : old.shipment_id, { ...d, by: 'data management' });
+  done();
+}
+
+/* ---------- parcel tracking ---------- */
+const TRACK_KEYS = ['packed', 'my_cargo', 'bd_warehouse', 'received'];
+export async function setTrack(sid, stage) {
+  const u = await me(), old = await get('shipments', Number(sid));
+  if (!old) throw new Error('Shipment not found');
+  const i = stage ? TRACK_KEYS.indexOf(stage) : -1;
+  if (stage && i < 0) throw new Error('Unknown stage');
+  const at = { ...(old.track_at || {}) };
+  TRACK_KEYS.forEach((k, j) => { if (j > i) delete at[k]; else if (!at[k]) at[k] = today(); });
+  let status = old.status;
+  if (status !== 'closed') {
+    if (stage === 'received') status = 'arrived';
+    else if (stage === 'my_cargo' || stage === 'bd_warehouse') status = 'in_transit';
+    else if (['in_transit', 'arrived'].includes(status)) status = 'purchasing';
+  }
+  await put('shipments', { ...old, track: stage || null, track_at: at, status });
+  await log(u, 'update', 'shipment', old.id, { tracking: [old.track || 'not sent', stage || 'not sent'], ...(status !== old.status ? { status: [old.status, status] } : {}) });
   done();
 }
