@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Modal from './Modal';
 import Icon from './Icon';
 import { saveShipment, deleteShipment } from '@/app/actions';
-import { SHIP_STATUS, MODES, label } from '@/lib/util';
+import { SHIP_STATUS, MODES, TRACK, label } from '@/lib/util';
 
 export default function ShipmentModal({ ship = {}, onClose, isAdmin }) {
   const router = useRouter();
@@ -12,6 +12,8 @@ export default function ShipmentModal({ ship = {}, onClose, isAdmin }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const v = (k, d = '') => ship[k] ?? d;
+  const [track, setTrackSel] = useState(ship.track || '');
+  const ti = TRACK.findIndex((x) => x.k === track);
 
   async function submit(e) {
     e.preventDefault(); setBusy(true); setErr('');
@@ -40,7 +42,14 @@ export default function ShipmentModal({ ship = {}, onClose, isAdmin }) {
         <label className="field full">Shipment name *<input name="name" defaultValue={v('name')} required autoFocus placeholder="e.g. Dec 1st shipment (12th)" /></label>
         <label className="field">Status<select name="status" defaultValue={v('status', 'collecting')}>{SHIP_STATUS.map((s) => <option key={s} value={s}>{label(s)}</option>)}</select></label>
         <label className="field">Freight mode<select name="mode" defaultValue={v('mode', '')}><option value="">—</option>{MODES.map((s) => <option key={s}>{s}</option>)}</select></label>
-        <label className="field full">Route<input name="route" defaultValue={v('route')} placeholder="Kuala Lumpur (KUL) → Dhaka (DAC)" /></label>
+        <div className="field full">Parcel tracking<small>Where the parcel is now. Set the date each step happened.</small>
+          <select name="track" value={track} onChange={(e) => setTrackSel(e.target.value)}>
+            <option value="">Not sent yet (still with staff)</option>
+            {TRACK.map((x, j) => <option key={x.k} value={x.k}>{j + 1}. {x.t}</option>)}
+          </select>
+          {ti >= 0 && <div className="trk-dates">{TRACK.slice(0, ti + 1).map((x) =>
+            <label key={x.k}><span>{x.short}</span><input type="date" name={'at_' + x.k} defaultValue={ship.track_at?.[x.k] || new Date().toISOString().slice(0, 10)} /></label>)}</div>}
+        </div>
         <label className="field">Carrier<input name="carrier" defaultValue={v('carrier')} placeholder="Cargo agent / airline" /></label>
         <label className="field">AWB / tracking no.<input name="tracking" defaultValue={v('tracking')} /></label>
         <label className="field">ETA<input type="date" name="eta" defaultValue={v('eta')} /></label>
