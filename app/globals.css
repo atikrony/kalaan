@@ -321,27 +321,5 @@ tfoot td{font-weight:700;border-top:1px solid var(--line);background:var(--surfa
 .trk-dots span.done{background:var(--ok)}
 .trk-dots span.cur{background:var(--primary)}
 .trk-mini-label{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.trk{border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;background:var(--surface-2,var(--surface));transition:opacity .15s}
-.trk.busy{opacity:.6}
-.trk-top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-.trk-route{display:inline-flex;align-items:center;gap:4px;font-size:13px}
-.trk-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(4,1fr);position:relative}
-.trk-steps li{position:relative}
-.trk-steps li:not(:last-child)::after{content:'';position:absolute;top:17px;left:calc(50% + 22px);right:calc(-50% + 22px);height:2px;background:var(--line)}
-.trk-steps li.done:not(:last-child)::after{background:var(--ok)}
-.trk-steps button{all:unset;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;text-align:center;border-radius:8px;padding:2px 4px 4px}
-.trk-steps button:hover .trk-ico{box-shadow:0 0 0 4px var(--primary-soft)}
-.trk-steps button:focus-visible{outline:2px solid var(--primary)}
-.trk-ico{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:2px solid var(--line);color:var(--mute);transition:box-shadow .15s}
-.trk-steps .done .trk-ico{background:var(--ok);border-color:var(--ok);color:#fff}
-.trk-steps .cur .trk-ico{background:var(--primary);border-color:var(--primary);color:#fff;box-shadow:0 0 0 4px var(--primary-soft)}
-.trk-txt{display:flex;flex-direction:column;gap:1px;font-size:12.5px;line-height:1.3}
-.trk-txt small{color:var(--mute);font-size:11.5px}
-.trk-steps .todo .trk-txt b{color:var(--mute);font-weight:500}
 .trk-dates{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-top:4px}
 .trk-dates label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--mute)}
-@media (max-width:640px){
-  .trk-steps{grid-template-columns:1fr;gap:4px}
-  .trk-steps li:not(:last-child)::after{top:36px;bottom:-6px;left:16px;right:auto;width:2px;height:auto}
-  .trk-steps button{flex-direction:row;text-align:left;gap:12px}
-}

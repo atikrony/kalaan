@@ -6,7 +6,7 @@ import OrderPanel from '@/components/OrderPanel';
 import { OpenModal, RowLink, BulkStatus, DelBtn } from '@/components/Live';
 import { addPurchase } from '@/app/actions';
 import BatchStrip, { BatchCard } from '@/components/BatchStrip';
-import { TrackMini, TrackSteps } from '@/components/Tracking';
+import { TrackMini } from '@/components/Tracking';
 export const dynamic = 'force-dynamic';
 
 const PAGE = 150;
@@ -132,7 +132,6 @@ export default async function Orders({ searchParams }) {
             {sel && mode === 'ship' && <OpenModal kind="shipment" data={sel} className="btn ghost sm"><Icon n="edit" size="sm" />Shipment settings</OpenModal>}
             {mode !== 'empty' && <a className="btn ghost sm" href={`/api/manifest?${new URLSearchParams({ s: mode === 'ship' ? sel.id : mode === 'none' ? 'none' : '', q: sp.q || '', st: sp.st || '', due: sp.due || '' })}`}><Icon n="download" size="sm" />Manifest CSV</a>}
           </div>
-          {sel && mode === 'ship' && <TrackSteps ship={sel} />}
         </div>
 
         {st && <div className="summary">
