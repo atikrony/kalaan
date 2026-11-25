@@ -265,20 +265,3 @@ export async function sysadUpdate(kind, rid, patch) {
 
 /* ---------- parcel tracking ---------- */
 const TRACK_KEYS = ['packed', 'my_cargo', 'bd_warehouse', 'received'];
-export async function setTrack(sid, stage) {
-  const u = await me(), old = await get('shipments', Number(sid));
-  if (!old) throw new Error('Shipment not found');
-  const i = stage ? TRACK_KEYS.indexOf(stage) : -1;
-  if (stage && i < 0) throw new Error('Unknown stage');
-  const at = { ...(old.track_at || {}) };
-  TRACK_KEYS.forEach((k, j) => { if (j > i) delete at[k]; else if (!at[k]) at[k] = today(); });
-  let status = old.status;
-  if (status !== 'closed') {
-    if (stage === 'received') status = 'arrived';
-    else if (stage === 'my_cargo' || stage === 'bd_warehouse') status = 'in_transit';
-    else if (['in_transit', 'arrived'].includes(status)) status = 'purchasing';
-  }
-  await put('shipments', { ...old, track: stage || null, track_at: at, status });
-  await log(u, 'update', 'shipment', old.id, { tracking: [old.track || 'not sent', stage || 'not sent'], ...(status !== old.status ? { status: [old.status, status] } : {}) });
-  done();
-}
