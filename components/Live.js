@@ -7,6 +7,7 @@ import { openModal } from './TopBar';
 import { compress } from './OrderModal';
 import { updateOrderField, deleteOrder, deletePayment, addOrderImages, removeOrderImage, bulkStatus, deletePurchase } from '@/app/actions';
 import { ORDER_STATUS, label } from '@/lib/util';
+import { act } from '@/lib/act';
 
 export function OpenModal({ kind, data, className = 'btn', children, title }) {
   return <button type="button" className={className} title={title} onClick={(e) => { e.stopPropagation(); openModal(kind, data); }}>{children}</button>;
@@ -45,7 +46,7 @@ export function FieldSelect({ id, field, value, options, className = 'inline-sel
   const { pending, err, run } = useSave();
   return <>
     <select className={className} defaultValue={value ?? ''} disabled={pending} key={String(value)}
-      onChange={(e) => run(() => updateOrderField(id, { [field]: e.target.value }))}>
+      onChange={(e) => run(() => act(updateOrderField(id, { [field]: e.target.value })))}>
       {options.map(([v, t]) => <option key={v} value={v}>{t}</option>)}
     </select>{err && <div className="bad" style={{ fontSize: 12 }}>{err}</div>}
   </>;
@@ -59,7 +60,7 @@ export function NoteBox({ id, value }) {
   useEffect(() => { setV(value || ''); }, [value]);
   return <>
     <textarea value={v} onChange={(e) => { setV(e.target.value); setSaved(false); }} placeholder="Add an internal note…"
-      onBlur={() => v !== (value || '') && run(async () => { await updateOrderField(id, { note: v }); setSaved(true); })} />
+      onBlur={() => v !== (value || '') && run(async () => { await act(updateOrderField(id, { note: v })); setSaved(true); })} />
     <div className="note-save">{pending ? 'Saving…' : err ? <span className="bad">{err}</span> : saved ? '✓ Saved' : 'Saves automatically'}</div>
   </>;
 }
@@ -70,11 +71,11 @@ export function ImageTools({ id, images }) {
     const list = await Promise.all([...e.target.files].map((x) => compress(x)));
     e.target.value = '';
     const fd = new FormData(); fd.append('id', id); list.forEach((f) => fd.append('images', f));
-    run(() => addOrderImages(fd));
+    run(() => act(addOrderImages(fd)));
   }
   return <div className="gallery">
     {images.map((u) => <div className="g" key={u}><a href={u} target="_blank" style={{ backgroundImage: `url(${u})` }} />
-      <button type="button" title="Remove photo" onClick={() => confirm('Remove this photo?') && run(() => removeOrderImage(id, u))}>×</button></div>)}
+      <button type="button" title="Remove photo" onClick={() => confirm('Remove this photo?') && run(() => act(removeOrderImage(id, u)))}>×</button></div>)}
     <label className="btn ghost sm" style={{ height: 56, minWidth: 56 }}>{pending ? '…' : <><Icon n="image" size="sm" />Add</>}
       <input type="file" accept="image/*" multiple hidden onChange={add} /></label>
     {err && <span className="bad">{err}</span>}
@@ -86,14 +87,14 @@ export function DeleteOrder({ id, back }) {
   const [busy, setBusy] = useState(false);
   return <button className="btn danger sm" disabled={busy} onClick={async () => {
     if (!confirm('Delete this order and all its payments? This cannot be undone.')) return;
-    setBusy(true); await deleteOrder(id); router.push(back, { scroll: false }); router.refresh();
+    setBusy(true); try { await act(deleteOrder(id)); router.push(back, { scroll: false }); router.refresh(); } catch (e) { alert(e.message); setBusy(false); }
   }}><Icon n="trash" size="sm" />Delete order</button>;
 }
 
 export function DelBtn({ kind, id }) {
   const { pending, run } = useSave();
   const fn = kind === 'payment' ? deletePayment : deletePurchase;
-  return <button className="btn ghost xs" disabled={pending} title="Delete" onClick={() => confirm(`Delete this ${kind}?`) && run(() => fn(id))}>×</button>;
+  return <button className="btn ghost xs" disabled={pending} title="Delete" onClick={() => confirm(`Delete this ${kind}?`) && run(() => act(fn(id)))}>×</button>;
 }
 
 export function BulkStatus({ sid }) {
@@ -103,7 +104,7 @@ export function BulkStatus({ sid }) {
     <span className="mute">Mark all open orders as</span>
     <select className="inline-select" defaultValue="" disabled={pending} onChange={(e) => {
       const s = e.target.value; e.target.value = '';
-      if (s && confirm(`Set every open order in this shipment to "${label(s)}"?`)) run(async () => setMsg(`${await bulkStatus(sid, s)} orders updated`));
+      if (s && confirm(`Set every open order in this shipment to "${label(s)}"?`)) run(async () => setMsg(`${await act(bulkStatus(sid, s))} orders updated`));
     }}><option value="" disabled>Choose…</option>{ORDER_STATUS.map((s) => <option key={s} value={s}>{label(s)}</option>)}</select>
     {msg && <span className="ok">{msg}</span>}{err && <span className="bad">{err}</span>}
   </div>;

@@ -5,6 +5,7 @@ import Modal from './Modal';
 import Icon from './Icon';
 import { saveShipment, deleteShipment } from '@/app/actions';
 import { SHIP_STATUS, MODES, TRACK, label } from '@/lib/util';
+import { act } from '@/lib/act';
 
 export default function ShipmentModal({ ship = {}, onClose, isAdmin }) {
   const router = useRouter();
@@ -18,14 +19,14 @@ export default function ShipmentModal({ ship = {}, onClose, isAdmin }) {
   async function submit(e) {
     e.preventDefault(); setBusy(true); setErr('');
     try {
-      const id = await saveShipment(new FormData(e.currentTarget));
+      const id = await act(saveShipment(new FormData(e.currentTarget)));
       onClose(); router.push(`/?s=${id}`, { scroll: false }); router.refresh();
     } catch (x) { setErr(x.message || 'Could not save'); setBusy(false); }
   }
   async function remove() {
     if (!confirm(`Delete shipment "${ship.name}"? This cannot be undone.`)) return;
     setBusy(true); setErr('');
-    try { await deleteShipment(ship.id); onClose(); router.push('/'); router.refresh(); }
+    try { await act(deleteShipment(ship.id)); onClose(); router.push('/'); router.refresh(); }
     catch (x) { setErr(x.message || 'Could not delete'); setBusy(false); }
   }
 

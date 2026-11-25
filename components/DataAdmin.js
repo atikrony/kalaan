@@ -6,6 +6,7 @@ import Modal from './Modal';
 import { openModal } from './TopBar';
 import { sysadDelete, sysadUpdate } from '@/app/actions';
 import { tk, rm, code, fmtDate, label } from '@/lib/util';
+import { act } from '@/lib/act';
 
 const TABS = [['shipments', 'Shipments'], ['orders', 'Orders'], ['payments', 'Payments'], ['purchases', 'Purchases']];
 const KIND = { shipments: 'shipment', orders: 'order', payments: 'payment', purchases: 'purchase' };
@@ -16,7 +17,7 @@ const VIEW = {
     cols: ['Shipment', 'Status', 'Orders', 'ETA'],
     row: (s) => [<b key="n">{s.name}</b>, label(s.status), s.order_count, s.eta ? fmtDate(s.eta) : '—'],
     name: (s) => `shipment "${s.name}"`,
-    warn: (s) => `Its Malaysia purchase entries will be deleted too.${s.order_count ? ` Its ${s.order_count} order(s) will NOT be deleted; they move to "Unassigned orders".` : ''}`,
+    warn: (s, all) => `Its Malaysia purchase entries will be deleted too.${s.order_count ? (all ? ` Its ${s.order_count} order(s) and their payments will be deleted too.` : ` Its ${s.order_count} order(s) will be kept and moved to "Unassigned orders".`) : ''}`,
   },
   orders: {
     cols: ['Order', 'Customer', 'Product', 'Bill'],
@@ -45,6 +46,7 @@ export default function DataAdmin({ data }) {
   const [del, setDel] = useState(null);   // row pending delete
   const [edit, setEdit] = useState(null); // payment / purchase being edited
   const [busy, setBusy] = useState(false);
+  const [withOrders, setWithOrders] = useState(false);
   const [err, setErr] = useState('');
   const v = VIEW[tab];
 
@@ -61,13 +63,13 @@ export default function DataAdmin({ data }) {
   };
   async function confirmDelete() {
     setBusy(true); setErr('');
-    try { await sysadDelete(KIND[tab], del.id); setDel(null); router.refresh(); }
+    try { await act(sysadDelete(KIND[tab], del.id, { withOrders: tab === 'shipments' && withOrders })); setDel(null); router.refresh(); }
     catch (x) { setErr(x.message || 'Could not delete'); }
     setBusy(false);
   }
   async function saveEdit(e) {
     e.preventDefault(); setBusy(true); setErr('');
-    try { await sysadUpdate(KIND[tab], edit.id, Object.fromEntries(new FormData(e.currentTarget))); setEdit(null); router.refresh(); }
+    try { await act(sysadUpdate(KIND[tab], edit.id, Object.fromEntries(new FormData(e.currentTarget)))); setEdit(null); router.refresh(); }
     catch (x) { setErr(x.message || 'Could not save'); }
     setBusy(false);
   }
@@ -86,7 +88,7 @@ export default function DataAdmin({ data }) {
           {v.row(r).map((c, i) => <td key={i}>{c}</td>)}
           <td className="r nowrap">
             <button type="button" className="btn ghost sm" onClick={() => onEdit(r)}><Icon n="edit" size="sm" />Edit</button>{' '}
-            <button type="button" className="btn danger sm" onClick={() => { setErr(''); setDel(r); }}><Icon n="trash" size="sm" />Delete</button>
+            <button type="button" className="btn danger sm" onClick={() => { setErr(''); setWithOrders(false); setDel(r); }}><Icon n="trash" size="sm" />Delete</button>
           </td>
         </tr>)}</tbody>
       </table>{!rows.length && <div className="empty">Nothing found.</div>}
@@ -98,7 +100,10 @@ export default function DataAdmin({ data }) {
           <button type="button" className="btn danger" onClick={confirmDelete} disabled={busy}><Icon n="trash" size="sm" />{busy ? 'Deleting…' : 'Yes, delete it'}</button></>}>
         <div className="err" style={{ marginBottom: 12 }}><b>Warning:</b> this cannot be undone.</div>
         <p style={{ margin: '0 0 8px' }}>You are about to delete the <b>{v.name(del)}</b>.</p>
-        <p className="mute" style={{ margin: 0 }}>{v.warn(del)}</p>
+        <p className="mute" style={{ margin: 0 }}>{v.warn(del, withOrders)}</p>
+        {tab === 'shipments' && del.order_count > 0 && <label className="row" style={{ gap: 8, marginTop: 12, cursor: 'pointer' }}>
+          <input type="checkbox" checked={withOrders} onChange={(e) => setWithOrders(e.target.checked)} />
+          <span>Also delete its <b>{del.order_count} order(s)</b> and their payments</span></label>}
       </Modal>}
 
       {edit && <Modal size="sm" title={`Edit ${KIND[tab]}`} onClose={() => !busy && setEdit(null)} onSubmit={saveEdit}
