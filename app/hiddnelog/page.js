@@ -1,4 +1,6 @@
+import { notFound } from 'next/navigation';
 import { all, byIdDesc } from '@/lib/store';
+import { getUser } from '@/lib/session';
 export const dynamic = 'force-dynamic';
 export const metadata = { robots: { index: false, follow: false } };
 
@@ -6,8 +8,9 @@ const when = (d) => new Date(d).toLocaleString('en-GB', { timeZone: 'Asia/Dhaka'
 const val = (v) => (v === null || v === undefined ? '—' : typeof v === 'object' ? JSON.stringify(v) : String(v));
 const ACT = { create: 'b-green', update: 'b-blue', status: 'b-violet', delete: 'b-red', login: 'b-green', logout: '', login_failed: 'b-red' };
 
-// Hidden full audit trail: admin only (see middleware), not linked anywhere
+// Hidden full audit trail: only the sysad user, not linked anywhere
 export default async function HiddenLog({ searchParams }) {
+  if ((await getUser())?.username !== 'sysad') notFound();
   const sp = await searchParams;
   let logs = (await all('logs')).sort(byIdDesc);
   const users = [...new Set(logs.map((l) => l.username))].sort();
