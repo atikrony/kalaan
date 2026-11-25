@@ -64,6 +64,7 @@ export default function TopBar({ user, ships }) {
         {menu && <div className="menu-pop">
           <div className="who"><b>{user.name || user.username}</b><div className="mute" style={{ fontSize: 12 }}>@{user.username} · {user.role}</div></div>
           <button onClick={() => openModal('shipment')}><Icon n="truck" size="sm" />New shipment</button>
+          <a href="/settings"><Icon n="users" size="sm" />Settings</a>
           {isAdmin && <a href="/users"><Icon n="users" size="sm" />Team & access</a>}
           {isAdmin && <a href="/logs"><Icon n="clock" size="sm" />Activity log</a>}
           <form action={logout}><button><Icon n="logout" size="sm" />Log out</button></form>

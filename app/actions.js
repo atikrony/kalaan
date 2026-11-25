@@ -7,7 +7,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { all, get, put, del } from '@/lib/store';
 import { sign } from '@/lib/auth';
-import { getUser, log, diff, hashPass, checkPass } from '@/lib/session';
+import { getUser, log, diff, hashPass, authenticate, envUsers } from '@/lib/session';
 import { today } from '@/lib/util';
 
 const f = (fd, k) => { const v = fd.get(k); return v === '' || v == null ? null : String(v).trim(); };
@@ -26,10 +26,7 @@ export async function login(_, fd) {
   const username = String(fd.get('username') || '').trim().toLowerCase(), password = String(fd.get('password') || '');
   let user = null;
   if (username === 'admin' && process.env.APP_PASSWORD && password === process.env.APP_PASSWORD) user = { username: 'admin', role: 'admin', name: 'Owner' };
-  else {
-    const found = (await all('users')).find((u) => u.username === username);
-    if (found?.active && checkPass(password, found.pass_hash)) user = found;
-  }
+  else user = await authenticate(username, password);
   if (!user) return 'Wrong username or password';
   (await cookies()).set('auth', await sign(user), { httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'lax', maxAge: 60 * 60 * 24 * 30, path: '/' });
   await log(user, 'login', 'user', user.username);
@@ -37,11 +34,30 @@ export async function login(_, fd) {
 }
 export async function logout() { (await cookies()).delete('auth'); redirect('/login'); }
 
+/* ---------- own account ---------- */
+export async function changePassword(_, fd) {
+  const u = await me();
+  if (u.username === 'admin') return { err: 'The owner password is set by APP_PASSWORD in Vercel.' };
+  const cur = String(fd.get('current') || ''), next = String(fd.get('password') || ''), again = String(fd.get('confirm') || '');
+  if (next.length < 6) return { err: 'New password must be at least 6 characters.' };
+  if (next !== again) return { err: 'New passwords do not match.' };
+  if (!(await authenticate(u.username, cur))) return { err: 'Current password is wrong.' };
+  let row = (await all('users')).find((x) => x.username === u.username);
+  if (!row) {
+    const e = envUsers().find((x) => x.username === u.username);
+    row = { username: u.username, name: e?.name || u.name, role: e?.role || u.role, active: true, created_at: new Date().toISOString() };
+  }
+  row.pass_hash = hashPass(next);
+  await put('users', row);
+  await log(u, 'update', 'user', row.id, { username: row.username, password: 'changed (self)' });
+  return { ok: 'Password updated.' };
+}
+
 /* ---------- users (admin) ---------- */
 export async function addUser(fd) {
   const u = await me(true);
   const username = String(fd.get('username')).trim().toLowerCase();
-  if (username === 'admin' || (await all('users')).some((x) => x.username === username)) throw new Error('Username taken');
+  if (username === 'admin' || envUsers().some((x) => x.username === username) || (await all('users')).some((x) => x.username === username)) throw new Error('Username taken');
   const row = await put('users', { username, name: f(fd, 'name'), role: f(fd, 'role') || 'moderator', active: true, pass_hash: hashPass(String(fd.get('password'))), created_at: new Date().toISOString() });
   await log(u, 'create', 'user', row.id, { username, role: row.role }); done();
 }
