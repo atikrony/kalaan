@@ -20,7 +20,7 @@ Locally, data is saved to `data/db.json` and images to `public/uploads/`.
 4. Redeploy.
 
 ## Users
-- The owner logs in as `admin` with `APP_PASSWORD`. On the **Users** page they can add moderators, reset passwords and disable accounts.
+- The owner logs in as `admin` with `APP_PASSWORD`. Admins and `sysad` can use the **Users** page to add accounts, change roles, reset passwords, disable and delete accounts. Accounts from `USERS` are listed too; deleting one disables it until it is also removed from the Vercel environment variable.
 - Passwords are saved as salted scrypt hashes, never as plain text. Login sessions are signed cookies.
 - The **Activity log** (admin only) shows every change from the last 30 days: who changed what, with old → new values.
 

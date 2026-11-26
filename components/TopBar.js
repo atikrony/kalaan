@@ -15,6 +15,7 @@ export default function TopBar({ user, ships }) {
   const [menu, setMenu] = useState(false);
   const [nav, setNav] = useState(false);
   const isAdmin = user.role === 'admin';
+  const canManageUsers = isAdmin || user.username === 'sysad';
   const [dark, setDark] = useState(false);
   useEffect(() => {
     const t = document.documentElement.dataset.theme;
@@ -35,7 +36,7 @@ export default function TopBar({ user, ships }) {
   useEffect(() => { setMenu(false); setNav(false); }, [path, sp]);
 
   const links = [['/', 'Orders'], ['/reconciliation', 'Reconciliation'], ['/customers', 'Customers'],
-    ...(isAdmin ? [['/users', 'Team'], ['/logs', 'Activity']] : [])];
+    ...(canManageUsers ? [['/users', 'Team']] : []), ...(isAdmin ? [['/logs', 'Activity']] : [])];
   const active = (h) => (h === '/' ? path === '/' : path.startsWith(h));
   const initials = (user.name || user.username).split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
   const defShip = sp.get('s') && sp.get('s') !== 'none' ? +sp.get('s') : ships.find((s) => s.status === 'collecting')?.id;
@@ -65,7 +66,7 @@ export default function TopBar({ user, ships }) {
           <div className="who"><b>{user.name || user.username}</b><div className="mute" style={{ fontSize: 12 }}>@{user.username} · {user.role}</div></div>
           <button onClick={() => openModal('shipment')}><Icon n="truck" size="sm" />New shipment</button>
           <a href="/settings"><Icon n="users" size="sm" />Settings</a>
-          {isAdmin && <a href="/users"><Icon n="users" size="sm" />Team & access</a>}
+          {canManageUsers && <a href="/users"><Icon n="users" size="sm" />Team & access</a>}
           {isAdmin && <a href="/logs"><Icon n="clock" size="sm" />Activity log</a>}
           <form action={logout}><button><Icon n="logout" size="sm" />Log out</button></form>
         </div>}

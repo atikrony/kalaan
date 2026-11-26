@@ -1,35 +1,36 @@
 import { all } from '@/lib/store';
-import { addUser, updateUser } from '@/app/actions';
+import { envUsers } from '@/lib/session';
 import Icon from '@/components/Icon';
+import UserCreateForm from '@/components/UserCreateForm';
+import UserManagementTable from '@/components/UserManagementTable';
 export const dynamic = 'force-dynamic';
 
 export default async function Users() {
-  const users = (await all('users')).sort((a, b) => a.id - b.id);
+  const [stored, initialUsers] = await Promise.all([all('users'), Promise.resolve(envUsers())]);
+  const envByUsername = new Map(initialUsers.map((user) => [user.username, user]));
+  const users = stored.map((user) => ({
+    id: user.id, username: user.username, name: user.name, role: user.role,
+    active: user.active !== false, source: envByUsername.has(user.username) ? 'USERS environment' : 'Database',
+    envBacked: envByUsername.has(user.username), protected: user.username === 'admin' || user.username === 'sysad',
+  }));
+  for (const user of initialUsers) {
+    if (!stored.some((row) => row.username === user.username) && !(user.username === 'admin' && process.env.APP_PASSWORD)) {
+      users.push({
+        username: user.username, name: user.name, role: user.role, active: true,
+        source: 'USERS environment', envBacked: true, protected: user.username === 'sysad',
+      });
+    }
+  }
+  if (process.env.APP_PASSWORD && !users.some((user) => user.username === 'admin')) {
+    users.push({ username: 'admin', name: 'Owner', role: 'admin', active: true, source: 'APP_PASSWORD', protected: true });
+  }
+  users.sort((a, b) => a.username.localeCompare(b.username));
   return (<>
-    <div className="page-head"><div><h1>Team & access</h1><p>The owner signs in as <b>admin</b> with APP_PASSWORD. Add a login for each moderator.</p></div></div>
+    <div className="page-head"><div><h1>Team & access</h1><p>The owner signs in as <b>admin</b> with APP_PASSWORD. Sysad and admins can manage team accounts.</p></div></div>
     <section className="card" style={{ marginBottom: 20 }}>
       <div className="card-head"><Icon n="plus" className="pri" /><h3>Add a team member</h3></div>
-      <form action={addUser} className="toolbar" style={{ borderBottom: 0 }}>
-        <input name="username" placeholder="Username" required autoCapitalize="none" />
-        <input name="name" placeholder="Full name" />
-        <input name="password" placeholder="Password" required minLength={4} />
-        <select name="role"><option value="moderator">Moderator</option><option value="admin">Admin</option></select>
-        <button className="btn sm"><Icon n="plus" size="sm" />Add user</button>
-      </form>
+      <UserCreateForm />
     </section>
-    <section className="card">
-      <div className="tbl-wrap"><table>
-        <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Reset password</th><th className="r">Access</th></tr></thead>
-        <tbody>{users.map((x) => <tr key={x.id}>
-          <td><a href={`/logs?user=${x.username}`} className="strong">{x.name || x.username}</a><div className="mute" style={{ fontSize: 12 }}>@{x.username}</div></td>
-          <td><span className={`badge ${x.role === 'admin' ? 'b-violet' : 'b-blue'}`}>{x.role}</span></td>
-          <td><span className={`badge ${x.active ? 'b-green' : 'b-red'}`}>{x.active ? 'Active' : 'Disabled'}</span></td>
-          <td><form action={updateUser} className="row" style={{ gap: 6, flexWrap: 'nowrap' }}><input type="hidden" name="id" value={x.id} />
-            <input name="password" placeholder="New password" minLength={4} required style={{ width: 160, minHeight: 34 }} /><button className="btn ghost sm">Set</button></form></td>
-          <td className="r"><form action={updateUser}><input type="hidden" name="id" value={x.id} /><input type="hidden" name="active" value={String(!x.active)} />
-            <button className={`btn sm ${x.active ? 'danger' : 'okb'}`}>{x.active ? 'Disable' : 'Enable'}</button></form></td>
-        </tr>)}</tbody>
-      </table>{!users.length && <div className="empty">No team members yet.</div>}</div>
-    </section>
+    <UserManagementTable users={users} />
   </>);
 }

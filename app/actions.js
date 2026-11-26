@@ -20,6 +20,11 @@ async function me(admin) {
   if (admin && u.role !== 'admin') throw new Error('Admin only');
   return u;
 }
+async function userManager() {
+  const u = await me();
+  if (u.role !== 'admin' && u.username !== 'sysad') throw new Error('Not allowed');
+  return u;
+}
 
 /* ---------- auth ---------- */
 export async function login(_, fd) {
@@ -53,21 +58,78 @@ export async function changePassword(_, fd) {
   return { ok: 'Password updated.' };
 }
 
-/* ---------- users (admin) ---------- */
-export async function addUser(fd) {
-  const u = await me(true);
-  const username = String(fd.get('username')).trim().toLowerCase();
-  if (username === 'admin' || envUsers().some((x) => x.username === username) || (await all('users')).some((x) => x.username === username)) throw new Error('Username taken');
-  const row = await put('users', { username, name: f(fd, 'name'), role: f(fd, 'role') || 'moderator', active: true, pass_hash: hashPass(String(fd.get('password'))), created_at: new Date().toISOString() });
+/* ---------- users ---------- */
+async function _addUser(fd) {
+  const u = await userManager();
+  const username = String(fd.get('username') || '').trim().toLowerCase();
+  const role = f(fd, 'role') || 'moderator';
+  if (!username) return { err: 'Username is required.' };
+  if (!['admin', 'moderator'].includes(role)) return { err: 'Choose a valid role.' };
+  if (username === 'admin' || envUsers().some((x) => x.username === username) || (await all('users')).some((x) => x.username.toLowerCase() === username)) return { err: 'Username taken' };
+  const row = await put('users', { username, name: f(fd, 'name'), role, active: true, pass_hash: hashPass(String(fd.get('password') || '')), created_at: new Date().toISOString() });
   await log(u, 'create', 'user', row.id, { username, role: row.role }); done();
+  return { ok: 'User added.' };
 }
-export async function updateUser(fd) {
-  const u = await me(true), row = await get('users', id(fd));
-  const ch = {};
-  if (fd.has('active')) row.active = ch.active = fd.get('active') === 'true';
-  if (f(fd, 'password')) { row.pass_hash = hashPass(String(fd.get('password'))); ch.password = 'changed'; }
+export async function addUser(_, fd) {
+  const result = await run('addUser', _addUser, [fd]);
+  return result.error ? { err: result.error } : result.data;
+}
+async function _updateUser(username, patch) {
+  const u = await userManager();
+  patch = patch && typeof patch === 'object' ? patch : {};
+  username = String(username || '').trim().toLowerCase();
+  if (!username || username === 'admin') throw new Error('The owner account cannot be changed here.');
+  if (username === 'sysad' && ('role' in patch || 'active' in patch)) throw new Error('The sysad account cannot be demoted or disabled.');
+  const environmentUser = envUsers().find((x) => x.username === username);
+  let row = (await all('users')).find((x) => x.username.toLowerCase() === username);
+  if (!row) {
+    if (!environmentUser) throw new Error('User not found.');
+    row = {
+      username, name: environmentUser.name, role: environmentUser.role, active: true,
+      pass_hash: hashPass(environmentUser.password), created_at: new Date().toISOString(),
+    };
+  }
+  const changes = {};
+  if ('role' in patch) {
+    if (!['admin', 'moderator'].includes(patch.role)) throw new Error('Choose a valid role.');
+    row.role = changes.role = patch.role;
+  }
+  if ('active' in patch) row.active = changes.active = Boolean(patch.active);
+  if ('password' in patch) {
+    const password = String(patch.password || '');
+    if (password.length < 4) throw new Error('Password must be at least 4 characters.');
+    row.pass_hash = hashPass(password);
+    changes.password = 'changed';
+  }
+  if (!Object.keys(changes).length) return;
   await put('users', row);
-  await log(u, 'update', 'user', row.id, { username: row.username, ...ch }); done();
+  await log(u, 'update', 'user', row.id, { username, ...changes }); done();
+}
+export async function updateUser(...args) {
+  return run('updateUser', _updateUser, args);
+}
+async function _deleteUser(username) {
+  const u = await userManager();
+  username = String(username || '').trim().toLowerCase();
+  if (!username || username === 'admin' || username === 'sysad') throw new Error('This account is protected.');
+  const environmentUser = envUsers().find((x) => x.username === username);
+  const row = (await all('users')).find((x) => x.username.toLowerCase() === username);
+  if (!row && !environmentUser) throw new Error('User not found.');
+  if (environmentUser) {
+    const disabled = row || {
+      username, name: environmentUser.name, role: environmentUser.role,
+      pass_hash: hashPass(environmentUser.password), created_at: new Date().toISOString(),
+    };
+    disabled.active = false;
+    await put('users', disabled);
+  } else {
+    await del('users', row.id);
+  }
+  await log(u, 'delete', 'user', row?.id || username, { username, ...(environmentUser ? { disabled: true, source: 'USERS environment variable' } : {}) });
+  done();
+}
+export async function deleteUser(...args) {
+  return run('deleteUser', _deleteUser, args);
 }
 
 /* ---------- images: Vercel Blob in prod, public/uploads locally ---------- */
