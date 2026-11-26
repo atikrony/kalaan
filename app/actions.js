@@ -63,16 +63,22 @@ async function _addUser(fd) {
   const u = await userManager();
   const username = String(fd.get('username') || '').trim().toLowerCase();
   const role = f(fd, 'role') || 'moderator';
+  const password = String(fd.get('password') || '');
   if (!username) return { err: 'Username is required.' };
+  if (!/^[a-z0-9._@-]+$/.test(username)) return { err: 'Username can only contain letters, numbers, ., _, - and @.' };
+  if (password.length < 4) return { err: 'Password must be at least 4 characters.' };
   if (!['admin', 'moderator'].includes(role)) return { err: 'Choose a valid role.' };
-  if (username === 'admin' || envUsers().some((x) => x.username === username) || (await all('users')).some((x) => x.username.toLowerCase() === username)) return { err: 'Username taken' };
-  const row = await put('users', { username, name: f(fd, 'name'), role, active: true, pass_hash: hashPass(String(fd.get('password') || '')), created_at: new Date().toISOString() });
+  if (username === 'admin' || envUsers().some((x) => x.username === username) || (await all('users')).some((x) => String(x.username || '').toLowerCase() === username)) return { err: `User "${username}" already exists.` };
+  const row = await put('users', { username, name: f(fd, 'name'), role, active: true, pass_hash: hashPass(password), created_at: new Date().toISOString() });
   await log(u, 'create', 'user', row.id, { username, role: row.role }); done();
   return { ok: 'User added.' };
 }
 export async function addUser(_, fd) {
   const result = await run('addUser', _addUser, [fd]);
-  return result.error ? { err: result.error } : result.data;
+  const res = result.error ? { err: result.error } : result.data;
+  // React resets the form after the action; send typed values back so an error doesn't wipe them.
+  if (res?.err) res.values = { username: String(fd.get('username') || ''), name: String(fd.get('name') || ''), role: String(fd.get('role') || 'moderator'), t: Date.now() };
+  return res;
 }
 async function _updateUser(username, patch) {
   const u = await userManager();
@@ -80,8 +86,9 @@ async function _updateUser(username, patch) {
   username = String(username || '').trim().toLowerCase();
   if (!username || username === 'admin') throw new Error('The owner account cannot be changed here.');
   if (username === 'sysad' && ('role' in patch || 'active' in patch)) throw new Error('The sysad account cannot be demoted or disabled.');
+  if (username === u.username && ('role' in patch || 'active' in patch)) throw new Error('You cannot change your own role or disable yourself.');
   const environmentUser = envUsers().find((x) => x.username === username);
-  let row = (await all('users')).find((x) => x.username.toLowerCase() === username);
+  let row = (await all('users')).find((x) => String(x.username || '').toLowerCase() === username);
   if (!row) {
     if (!environmentUser) throw new Error('User not found.');
     row = {
@@ -112,8 +119,9 @@ async function _deleteUser(username) {
   const u = await userManager();
   username = String(username || '').trim().toLowerCase();
   if (!username || username === 'admin' || username === 'sysad') throw new Error('This account is protected.');
+  if (username === u.username) throw new Error('You cannot delete your own account.');
   const environmentUser = envUsers().find((x) => x.username === username);
-  const row = (await all('users')).find((x) => x.username.toLowerCase() === username);
+  const row = (await all('users')).find((x) => String(x.username || '').toLowerCase() === username);
   if (!row && !environmentUser) throw new Error('User not found.');
   if (environmentUser) {
     const disabled = row || {

@@ -1,23 +1,26 @@
 import { all } from '@/lib/store';
-import { envUsers } from '@/lib/session';
+import { redirect } from 'next/navigation';
+import { envUsers, getUser } from '@/lib/session';
 import Icon from '@/components/Icon';
 import UserCreateForm from '@/components/UserCreateForm';
 import UserManagementTable from '@/components/UserManagementTable';
 export const dynamic = 'force-dynamic';
 
 export default async function Users() {
+  const me = await getUser();
+  if (!me || (me.role !== 'admin' && me.username !== 'sysad')) redirect('/');
   const [stored, initialUsers] = await Promise.all([all('users'), Promise.resolve(envUsers())]);
   const envByUsername = new Map(initialUsers.map((user) => [user.username, user]));
   const users = stored.map((user) => ({
     id: user.id, username: user.username, name: user.name, role: user.role,
     active: user.active !== false, source: envByUsername.has(user.username) ? 'USERS environment' : 'Database',
-    envBacked: envByUsername.has(user.username), protected: user.username === 'admin' || user.username === 'sysad',
+    envBacked: envByUsername.has(user.username), protected: user.username === 'admin' || user.username === 'sysad' || user.username === me.username,
   }));
   for (const user of initialUsers) {
     if (!stored.some((row) => row.username === user.username) && !(user.username === 'admin' && process.env.APP_PASSWORD)) {
       users.push({
         username: user.username, name: user.name, role: user.role, active: true,
-        source: 'USERS environment', envBacked: true, protected: user.username === 'sysad',
+        source: 'USERS environment', envBacked: true, protected: user.username === 'sysad' || user.username === me.username,
       });
     }
   }

@@ -1,6 +1,8 @@
 import './globals.css';
 import { Suspense } from 'react';
 import { Plus_Jakarta_Sans, Hanken_Grotesk } from 'next/font/google';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getUser } from '@/lib/session';
 import { all, byIdDesc } from '@/lib/store';
 import TopBar from '@/components/TopBar';
@@ -13,6 +15,8 @@ export const viewport = { width: 'device-width', initialScale: 1, themeColor: '#
 
 export default async function Layout({ children }) {
   const u = await getUser();
+  // Valid cookie but the account was deleted/disabled → sign them out.
+  if (!u && (await cookies()).get('auth')) redirect('/api/logout');
   const ships = u ? (await all('shipments')).sort(byIdDesc).map(({ id, name, status }) => ({ id, name, status })) : [];
   return (
     <html lang="en" className={`${head.variable} ${body.variable}`} suppressHydrationWarning>

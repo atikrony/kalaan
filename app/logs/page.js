@@ -1,4 +1,6 @@
+import { redirect } from 'next/navigation';
 import { all, byIdDesc } from '@/lib/store';
+import { getUser } from '@/lib/session';
 import { code } from '@/lib/util';
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +14,7 @@ const link = (l) => {
 const ACT = { create: 'b-green', update: 'b-blue', status: 'b-violet', delete: 'b-red', login: '' };
 
 export default async function Logs({ searchParams }) {
+  if ((await getUser())?.role !== 'admin') redirect('/');
   const sp = await searchParams;
   const since = new Date(Date.now() - 30 * 864e5).toISOString();
   let [logs, users] = await Promise.all([all('logs'), all('users')]);
